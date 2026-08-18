@@ -15,7 +15,7 @@ except ImportError:
 # 1. 頁面基本配置
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="衛保組藥品關懷管理系統",
+    page_title="臺北大學衛保組門診藥品系統",
     page_icon="🏥",
     layout="wide"
 )
