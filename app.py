@@ -288,12 +288,29 @@ with tab3:
         )
     else:
         st.info("資料載入中，或目前尚無庫存資料～")
-with tab_report:  # 或對應的 tab 變數名稱
-    st.write("### 匯出衛保組標準月報表")
-    excel_data = generate_monthly_report_excel(df)
-    st.download_button(
-        label="📊 匯出 115 學年度用藥月報表 (.xlsx)",
-        data=excel_data,
-        file_name="115學年度上學期用藥月報與學期統計表.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+# ------------------ 115學年度月報表下載區 ------------------
+st.markdown("---")
+st.subheader("📊 衛保組 115 學年度月報表匯出")
+
+# 安全搜尋系統內現有的 DataFrame 變數
+target_df = None
+if 'df' in st.session_state:
+    target_df = st.session_state.df
+elif 'df' in locals() or 'df' in globals():
+    target_df = df
+elif 'data' in locals() or 'data' in globals():
+    target_df = data
+
+if target_df is not None:
+    try:
+        excel_data = generate_monthly_report_excel(target_df)
+        st.download_button(
+            label="📥 點此下載 115 學年度用藥月報與全學期統計表 (.xlsx)",
+            data=excel_data,
+            file_name="115學年度上學期用藥月報與學期統計表.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        st.warning(f"產生報表時發生錯誤：{e}")
+else:
+    st.info("💡 系統載入資料中，請稍後...")
