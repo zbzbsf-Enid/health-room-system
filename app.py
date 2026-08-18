@@ -3,16 +3,19 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime, date
 
-st.set_page_config(page_title="衛保組藥品管理系統 (雲端版)", layout="wide")
+st.set_page_config(page_title="衛保組藥品管理系統 (雲端 24H 版)", layout="wide")
+
+# ⚠️ 請把下方網址替換為您的 Google 試算表完整網址
+GSHEET_URL = "https://docs.google.com/spreadsheets/d/1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU/edit?usp=sharing"
 
 # 建立 Google Sheets 連線
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_meds():
-    return conn.read(worksheet="medications", ttl=0)
+    return conn.read(spreadsheet=GSHEET_URL, worksheet="medications", ttl=0)
 
 def load_logs():
-    return conn.read(worksheet="logs", ttl=0)
+    return conn.read(spreadsheet=GSHEET_URL, worksheet="logs", ttl=0)
 
 st.title("💊 衛保組藥品管理系統 (雲端 24H 版)")
 
@@ -45,7 +48,7 @@ with tab1:
         if st.button("✅ 確定扣庫發藥", type="primary"):
             # 更新庫存
             meds_df.loc[meds_df['name'] == selected_row['name'], 'stock'] = int(selected_row['stock']) - qty
-            conn.update(worksheet="medications", data=meds_df)
+            conn.update(spreadsheet=GSHEET_URL, worksheet="medications", data=meds_df)
             
             # 寫入紀錄
             logs_df = load_logs()
@@ -56,7 +59,7 @@ with tab1:
                 'qty': qty
             }])
             updated_logs = pd.concat([logs_df, new_log], ignore_index=True)
-            conn.update(worksheet="logs", data=updated_logs)
+            conn.update(spreadsheet=GSHEET_URL, worksheet="logs", data=updated_logs)
             
             st.success(f"🎉 完成扣庫！{selected_row['name']} 扣除 {qty} 顆/件")
             st.rerun()
@@ -91,7 +94,7 @@ with tab2:
                 'last_updated': str(date.today())
             }])
             updated_meds = pd.concat([meds_df, new_data], ignore_index=True)
-            conn.update(worksheet="medications", data=updated_meds)
+            conn.update(spreadsheet=GSHEET_URL, worksheet="medications", data=updated_meds)
             st.success(f"🎉 成功更新【{name}】至雲端庫存！")
             st.rerun()
 
