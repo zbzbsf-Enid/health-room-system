@@ -6,7 +6,7 @@ from datetime import datetime, date
 st.set_page_config(page_title="衛保組藥品管理系統 (雲端 24H 版)", layout="wide")
 
 # ⚠️ 請把下方網址替換為您的 Google 試算表完整網址
-GSHEET_URL = "https://docs.google.com/spreadsheets/d/1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU/edit?usp=sharing"
+GSHEET_URL = "https://docs.google.com/spreadsheets/d/1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU/edit?gid=0#gid=0"
 
 # 建立 Google Sheets 連線
 conn = st.connection("gsheets", type=GSheetsConnection)
