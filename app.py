@@ -5,7 +5,7 @@ from datetime import datetime, date
 st.set_page_config(page_title="衛保組藥品管理系統 (雲端 24H 版)", layout="wide")
 
 # ⚠️ 請只填入您的「試算表 ID」（開頭那一長串亂碼）
-SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU/edit?gid=0#gid=0"
+SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU/edit"
 
 # 免 API 金鑰直接讀取 Google 試算表的公開 CSV 連結
 def load_data(sheet_name):
