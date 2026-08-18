@@ -1,316 +1,282 @@
 import streamlit as st
 import pandas as pd
 import io
+import os
 from datetime import datetime, date
-from monthly_report import generate_monthly_report_excel
-st.set_page_config(page_title="衛保組藥品關懷管理系統", layout="wide")
 
-# 🎨 注入溫暖系 CSS 樣式（圓角卡片、柔和配色、放大字體 18px+）
+# 嘗試匯入月報表模組 (若 monthly_report.py 尚未建立則給予提示)
+try:
+    from monthly_report import generate_monthly_report_excel
+except ImportError:
+    generate_monthly_report_excel = None
+
+# -----------------------------------------------------------------------------
+# 1. 頁面基本配置 (寬頁面模式)
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="衛保組藥品關懷管理系統",
+    page_icon="🏥",
+    layout="wide"
+)
+
+# -----------------------------------------------------------------------------
+# 2. 注入 CSS 全域樣式 (選用 Inter 字體、18px+ 大字體、高質感深色卡片)
+# -----------------------------------------------------------------------------
 st.markdown("""
-    <style>
-    /* 全域內文與字體放大 */
-    html, body, [class*="st-"], .stMarkdown, p, span {
-        font-size: 18px !important;
-        font-family: "Microsoft JhengHei", "PingFang TC", sans-serif !important;
-    }
-    
-    /* 標籤與欄位名稱 */
-    label, .stSelectbox label, .stNumberInput label, .stTextInput label, .stDateInput label, .stRadio label {
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        color: #d96d00 !important; /* 溫暖暖橘色 */
-    }
-    
-    /* 下拉選單與輸入框圓角與質感 */
-    .stSelectbox div[data-baseweb="select"] > div, 
-    .stNumberInput input, 
-    .stTextInput input {
-        font-size: 18px !important;
-        border-radius: 10px !important;
-    }
-    
-    /* 分頁頁籤樣式 */
-    button[data-baseweb="tab"] {
-        font-size: 20px !important;
-        font-weight: bold !important;
-        padding: 10px 20px !important;
-    }
-    
-    /* 溫暖系按鈕設計 */
-    .stButton > button {
-        font-size: 18px !important;
-        font-weight: bold !important;
-        border-radius: 12px !important;
-        padding: 0.6rem 1.2rem !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
-        transition: all 0.2s ease !important;
-    }
-    
-    /* 表格樣式優化 */
-    .stDataFrame {
-        font-size: 16px !important;
-        border-radius: 10px !important;
-    }
-    
-    /* 提示訊息框 */
-    .stAlert {
-        font-size: 18px !important;
-        border-radius: 12px !important;
-    }
-    </style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* 全域字體設定 (以 Inter 優先，搭配微軟正黑體) */
+html, body, [class*="st-"], .stMarkdown, p, span, div {
+    font-family: 'Inter', 'Microsoft JhengHei', 'PingFang TC', sans-serif !important;
+    font-size: 18px !important;
+}
+
+/* 標題字體與大小放大 */
+h1 { font-size: 32px !important; font-weight: 700 !important; color: #F8FAFC !important; }
+h2 { font-size: 26px !important; font-weight: 700 !important; color: #E2E8F0 !important; }
+h3 { font-size: 22px !important; font-weight: 600 !important; color: #CBD5E1 !important; }
+
+/* 表單欄位標籤放大 */
+label, .stSelectbox label, .stNumberInput label, .stTextInput label, .stDateInput label, .stRadio label {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #E2E8F0 !important;
+}
+
+/* 輸入框主體文字放大 */
+input, select, textarea, .stSelectbox div {
+    font-size: 18px !important;
+}
+
+/* 一般按鈕樣式 */
+.stButton > button {
+    font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    border-radius: 10px !important;
+    padding: 10px 20px !important;
+}
+
+/* 「雲端報表匯出」頁面專用質感卡片 */
+.export-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 28px;
+    margin-top: 15px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.export-card-title {
+    font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
+    font-size: 26px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    margin-bottom: 14px !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.export-card-desc {
+    font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
+    font-size: 19px !important;
+    line-height: 1.7 !important;
+    color: #CBD5E1 !important;
+    margin-bottom: 20px !important;
+}
+
+/* 下載按鈕超亮眼視覺設計 */
+div.stDownloadButton > button {
+    font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    padding: 14px 28px !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #1F4E78 0%, #2E75B6 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 6px 16px rgba(31, 78, 120, 0.4) !important;
+    transition: all 0.25s ease-in-out !important;
+    width: 100% !important;
+}
+
+div.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.5) !important;
+    transform: translateY(-2px) !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# Google 試算表 ID
-SPREADSHEET_ID = "1fqR5nvOGTOnKljryhMwfbAUAvZo5L11Jtsm823Hf8hU"
+# -----------------------------------------------------------------------------
+# 3. 初始化與讀取資料 (Session State 管理)
+# -----------------------------------------------------------------------------
+CSV_PATH = "medications_cleaned.csv"
+ALT_CSV_PATH = "medications.csv"
 
-@st.cache_data(ttl=5)
-def load_data(sheet_name):
-    url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-    try:
-        df = pd.read_csv(url)
-        df.columns = [str(c).strip() for c in df.columns]
-        return df
-    except Exception:
-        return pd.DataFrame()
-
-# 初始化購物車暫存
-if 'cart' not in st.session_state:
-    st.session_state.cart = []
-
-# 溫馨系統標題
-st.title("🌸 衛保組藥品關懷管理系統")
-st.caption("☀️ 守護校園健康每一天，感謝您的細心付出與照護！")
-
-tab1, tab2, tab3 = st.tabs([
-    "✨ 多品項快速扣庫與領藥", 
-    "🌿 庫存校正與新藥進貨紀錄", 
-    "📦 雲端總覽與 Excel 報表匯出"
-])
-
-# ---------------------------------------------------------
-# Tab 1: 快速扣庫/發藥 (親切語調)
-# ---------------------------------------------------------
-with tab1:
-    meds_df = load_data("medications")
-    
-    if not meds_df.empty and 'stock' in meds_df.columns:
-        meds_df['stock'] = pd.to_numeric(meds_df['stock'], errors='coerce').fillna(0).astype(int)
-        valid_meds = meds_df[meds_df['stock'] > 0].copy()
-        
-        if not valid_meds.empty:
-            st.subheader("1. 選擇給藥品項")
-            
-            options = [
-                f"{r.get('name', '')} ({r.get('chinese_name', '')}) | 批號:{r.get('lot_no', 'DEFAULT')} | 效期:{r.get('expiry', '')} | 剩餘庫存:{r['stock']}" 
-                for _, r in valid_meds.iterrows()
-            ]
-            
-            col_select, col_qty, col_add = st.columns([3.5, 1.2, 1.3])
-            
-            with col_select:
-                selected_str = st.selectbox("選擇藥品 (已自動為您優先帶出最早到期的批次 💡)", options, key="dispense_select")
-                selected_row = valid_meds.iloc[options.index(selected_str)]
-                
-            with col_qty:
-                qty = st.number_input("領取數量", min_value=1, max_value=int(selected_row['stock']), value=1, key="dispense_qty")
-                
-            with col_add:
-                st.write("")
-                st.write("")
-                if st.button("💖 加入發藥清單", use_container_width=True, type="primary"):
-                    existing = next((item for item in st.session_state.cart if item['name'] == selected_row['name'] and item['lot_no'] == selected_row.get('lot_no', 'DEFAULT')), None)
-                    if existing:
-                        if existing['qty'] + qty <= selected_row['stock']:
-                            existing['qty'] += qty
-                            st.toast(f"已更新【{selected_row['name']}】數量為 {existing['qty']} 顆/件囉！", icon="✨")
-                        else:
-                            st.error("發藥數量已超過庫存上限，請確認後重試～")
-                    else:
-                        st.session_state.cart.append({
-                            'name': selected_row['name'],
-                            'chinese_name': selected_row.get('chinese_name', ''),
-                            'lot_no': selected_row.get('lot_no', 'DEFAULT'),
-                            'qty': qty,
-                            'max_stock': selected_row['stock']
-                        })
-                        st.toast(f"已貼心為您加入：{selected_row['name']} x {qty}", icon="🌸")
-                    st.rerun()
-
-            st.markdown("---")
-            
-            cart_count = len(st.session_state.cart)
-            st.subheader(f"2. 本次待發藥品清單 (已選取 {cart_count} 項品項)")
-
-            if cart_count > 0:
-                cart_df = pd.DataFrame(st.session_state.cart)[['name', 'chinese_name', 'lot_no', 'qty']]
-                cart_df.columns = ['商品名', '中文名', '批號', '領用數量']
-                
-                st.dataframe(cart_df, use_container_width=True, height=200)
-                
-                btn_col1, btn_col2 = st.columns([1, 3])
-                with btn_col1:
-                    if st.button("🧹 清空待發清單", use_container_width=True):
-                        st.session_state.cart = []
-                        st.rerun()
-                        
-                with btn_col2:
-                    if st.button("🎉 完成發藥扣庫紀錄", type="primary", use_container_width=True):
-                        summary_list = [f"{item['name']} x{item['qty']}" for item in st.session_state.cart]
-                        st.balloons()
-                        st.success(f"👏 太棒了！本次發藥試算完成：{', '.join(summary_list)}")
-                        st.info("💡 溫馨提醒：請記得至 Google 試算表同步更新扣除後的庫存數量喔！")
-                        st.session_state.cart = []
-            else:
-                st.info("☘️ 目前待發清單是空的～請從上方選擇藥品並點擊【💖 加入發藥清單】")
-
-        else:
-            st.warning("目前試算表內尚無可用庫存（庫存皆為 0）。")
+def load_initial_data():
+    if os.path.exists(CSV_PATH):
+        return pd.read_csv(CSV_PATH)
+    elif os.path.exists(ALT_CSV_PATH):
+        return pd.read_csv(ALT_CSV_PATH)
     else:
-        st.error("連線遇到了一點問題，請確認 Google 試算表已開啟【檔案 ➜ 分享 ➜ 發佈到網路】喔！")
+        # 預設預備資料 (確保系統無檔案時也能安全啟動)
+        sept_dates = ['9/1', '9/2', '9/3', '9/4', '9/7', '9/8', '9/9', '9/10', '9/11',
+                      '9/14', '9/15', '9/16', '9/17', '9/18', '9/21', '9/22', '9/23',
+                      '9/24', '9/25', '9/28', '9/29', '9/30']
+        data = {
+            'name': ['Panadol', 'Amoxicillin', 'Solmux'],
+            'chinese_name': ['普拿疼', '安莫西林', '去痰靈'],
+            'aug_stock': [100, 50, 80],
+            'stock': [85, 45, 70],
+            'purchased': [0, 0, 0],
+            'expired': [0, 0, 0],
+            'public_use': [0, 0, 0],
+            'expiry': ['2028/04/30', '2026/08/18', '2027/12/31']
+        }
+        for day in sept_dates:
+            data[day] = [0, 0, 0]
+        return pd.DataFrame(data)
 
-# ---------------------------------------------------------
-# Tab 2: 線上庫存校正與新藥進貨
-# ---------------------------------------------------------
-with tab2:
-    st.subheader("🌿 線上庫存校正與新藥進貨管理")
-    
-    subtab1, subtab2 = st.tabs([
-        "🔄 既有藥品 — 盤點校正 / 效期變更 / 補充庫存",
-        "➕ 建立全新藥品 / 新批次進貨"
-    ])
-    
-    meds_df = load_data("medications")
-    
-    # 子分頁 1：盤點與校正
-    with subtab1:
-        if not meds_df.empty:
-            meds_df['stock'] = pd.to_numeric(meds_df['stock'], errors='coerce').fillna(0).astype(int)
-            
-            options = [
-                f"{r.get('name', '')} ({r.get('chinese_name', '')}) | 批號:{r.get('lot_no', 'DEFAULT')} | 庫存:{r['stock']} | 效期:{r.get('expiry', '')}"
-                for _, r in meds_df.iterrows()
-            ]
-            
-            selected_str = st.selectbox("🔍 請選擇欲維護/盤點的藥品項目：", options, key="edit_select")
-            selected_row = meds_df.iloc[options.index(selected_str)]
-            
-            st.write("")
-            
-            # 溫馨數據卡片
-            m_col1, m_col2, m_col3 = st.columns(3)
-            with m_col1:
-                st.caption("目前登記庫存")
-                st.markdown(f"## **{selected_row['stock']} 顆/件**")
-            with m_col2:
-                st.caption("當前有效期限")
-                st.markdown(f"## **{selected_row.get('expiry', '未填寫')}**")
-            with m_col3:
-                st.caption("最後盤點日期")
-                last_up = str(selected_row.get('last_updated', '無紀錄'))
-                st.markdown(f"## **{last_up if last_up != 'nan' else '無紀錄'}**")
-                
-            st.markdown("---")
-            
-            with st.form("edit_form"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    adj_mode = st.radio(
-                        "選擇調整模式：",
-                        ["直接修正為 (盤點覆蓋)", "舊批次補貨 (數量累加)"]
-                    )
-                with c2:
-                    new_stock_val = st.number_input("盤點後正確數量", min_value=0, value=int(selected_row['stock']))
-                    
-                c3, c4 = st.columns(2)
-                with c3:
-                    try:
-                        def_exp = datetime.strptime(str(selected_row.get('expiry', '')), "%Y-%m-%d").date()
-                    except:
-                        def_exp = date(2028, 5, 31)
-                    new_exp = st.date_input("校正有效期限", value=def_exp)
-                with c4:
-                    op_date = st.date_input("異動/盤點日期", value=date.today())
-                    
-                notes_val = st.text_input("用途 / 備註說明", value=str(selected_row.get('notes', '')) if str(selected_row.get('notes', '')) != 'nan' else "")
-                
-                submit_edit = st.form_submit_button("🌱 儲存盤點校正紀錄", type="primary", use_container_width=True)
-                if submit_edit:
-                    st.success(f"已順利登記【{selected_row['name']}】異動紀錄！辛苦了，請記得同步至 Google 試算表～")
-        else:
-            st.info("目前尚無藥品資料可以校正。")
+if 'df' not in st.session_state:
+    st.session_state.df = load_initial_data()
 
-    # 子分頁 2：新增新藥
-    with subtab2:
-        st.markdown("##### ➕ 新增全新藥品品項或新批次")
-        with st.form("add_new_med_form"):
-            col1, col2, col3 = st.columns(3)
+def save_data():
+    st.session_state.df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+
+# -----------------------------------------------------------------------------
+# 4. 側邊欄 (Sidebar) 導覽選單
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.title("🏥 衛保組管理系統")
+    st.markdown("---")
+    
+    # 使用側邊欄選項切換頁面
+    page = st.radio(
+        "📍 請選擇功能頁面",
+        ["💊 藥品領用與紀錄", "📦 庫存盤點與校正", "☁️ 雲端報表匯出"],
+        index=0
+    )
+    
+    st.markdown("---")
+    st.caption("國立臺北大學衛保組 © 115學年度系統")
+
+# -----------------------------------------------------------------------------
+# 5. 根據側邊欄選擇渲染不同頁面
+# -----------------------------------------------------------------------------
+
+# ==========================================
+# 頁面一：💊 藥品領用與紀錄
+# ==========================================
+if page == "💊 藥品領用與紀錄":
+    st.title("💊 藥品領用與登記")
+    st.markdown("填寫領藥資訊，系統將自動扣減總庫存並記錄至今日的用量中。")
+
+    df = st.session_state.df
+    med_list = df['name'].tolist() if 'name' in df.columns else []
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        selected_med = st.selectbox("選擇藥品", med_list if med_list else ["無藥品資料"])
+        qty_used = st.number_input("領取數量", min_value=1, value=1, step=1)
+        note = st.text_input("用途 / 備註說明", placeholder="例：發燒、頭痛、去痰")
+
+        if st.button("✅ 確認領藥並儲存", type="primary"):
+            if selected_med and selected_med in df['name'].values:
+                mask = df['name'] == selected_med
+                
+                # 扣除總庫存
+                df.loc[mask, 'stock'] = df.loc[mask, 'stock'] - qty_used
+                
+                # 記錄今日領藥數量
+                today_key = f"{datetime.now().month}/{datetime.now().day}"
+                if today_key not in df.columns:
+                    df[today_key] = 0
+                df.loc[mask, today_key] = df.loc[mask, today_key] + qty_used
+                
+                save_data()
+                st.success(f"已成功登記領取 {selected_med} 數量：{qty_used}！")
+                st.rerun()
+
+    with col2:
+        st.subheader("📋 當前藥品庫存總覽")
+        display_cols = [c for c in ['name', 'chinese_name', 'stock', 'expiry'] if c in df.columns]
+        st.dataframe(df[display_cols], use_container_width=True, height=350)
+
+# ==========================================
+# 頁面二：📦 庫存盤點與校正
+# ==========================================
+elif page == "📦 庫存盤點與校正":
+    st.title("📦 庫存盤點與詳細校正")
+    st.markdown("針對單一藥品進行詳細庫存資料修訂、盤點數輸入與效期維護。")
+
+    df = st.session_state.df
+    med_list = df['name'].tolist() if 'name' in df.columns else []
+
+    if med_list:
+        selected_med = st.selectbox("請選擇要校正的藥品", med_list)
+        med_row = df[df['name'] == selected_med].iloc[0]
+
+        with st.form("calibration_form"):
+            col1, col2 = st.columns(2)
             with col1:
-                new_name = st.text_input("藥品名稱 (英文/商品名)")
+                aug_stock = st.number_input("115年8月剩餘量 (期初庫存)", value=int(med_row.get('aug_stock', med_row.get('stock', 0))))
+                current_stock = st.number_input("當前總庫存 (Stock)", value=int(med_row.get('stock', 0)))
+                purchased = st.number_input("當月進貨量 (Purchased)", value=int(med_row.get('purchased', 0)))
             with col2:
-                new_chi = st.text_input("中文藥名")
-            with col3:
-                new_lot = st.text_input("批號", value="DEFAULT")
-                
-            col4, col5, col6 = st.columns(3)
-            with col4:
-                new_stock = st.number_input("進貨數量", min_value=1, value=100)
-            with col5:
-                new_exp = st.date_input("有效期限", value=date(2028, 12, 31))
-            with col6:
-                new_notes = st.text_input("用途 / 備註說明")
-                
-            submit_new = st.form_submit_button("💾 儲存全新藥品入庫", type="primary", use_container_width=True)
-            if submit_new and new_name:
-                st.success(f"成功新增品項【{new_name} ({new_chi})】共 {new_stock} 顆/件！")
+                expired = st.number_input("過期報銷量 (Expired)", value=int(med_row.get('expired', 0)))
+                public_use = st.number_input("公藥使用量 (Public Use)", value=int(med_row.get('public_use', 0)))
+                expiry_str = st.text_input("有效期限 (YYYY/MM/DD)", value=str(med_row.get('expiry', '')))
 
-# ---------------------------------------------------------
-# Tab 3: 雲端總覽與 Excel 下載
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("📦 目前 Google 雲端藥品總表")
-    
-    meds_all = load_data("medications")
-    
-    if not meds_all.empty:
-        st.dataframe(meds_all, use_container_width=True)
-        
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            meds_all.to_excel(writer, index=False, sheet_name='medications')
-        buffer.seek(0)
-        
-        st.download_button(
-            label="🌻 一鍵下載完整藥品庫存 Excel 報表 (.xlsx)",
-            data=buffer,
-            file_name=f"衛保組藥品庫存總表_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+            note_cal = st.text_input("用途 / 備註說明", value="去痰" if selected_med == 'Solmux' else "")
+
+            submitted = st.form_submit_button("🌱 儲存盤點校正紀錄", type="primary")
+
+            if submitted:
+                mask = df['name'] == selected_med
+                df.loc[mask, 'aug_stock'] = aug_stock
+                df.loc[mask, 'stock'] = current_stock
+                df.loc[mask, 'purchased'] = purchased
+                df.loc[mask, 'expired'] = expired
+                df.loc[mask, 'public_use'] = public_use
+                df.loc[mask, 'expiry'] = expiry_str
+                save_data()
+                st.success(f"已成功儲存 {selected_med} 的校正紀錄！")
+                st.rerun()
+
+# ==========================================
+# 頁面三：☁️ 雲端報表匯出 (僅在此頁面獨家呈現)
+# ==========================================
+elif page == "☁️ 雲端報表匯出":
+    st.title("☁️ 雲端報表匯出中心")
+
+    # 顯示質感 Inter 字體清晰卡片
+    st.markdown("""
+    <div class="export-card">
+        <div class="export-card-title">📊 衛保組 115 學年度藥品使用月報與全學期統計表</div>
+        <div class="export-card-desc">
+            點擊下方按鈕即可匯出符合校內行政格式之 <b>.xlsx 標準 Excel 報表</b>。<br>
+            報表已自動整合每日領藥紀錄、進貨、報銷與全學期動態公式計算。
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 安全讀取資料並產生 Excel 下載按鈕
+    if generate_monthly_report_excel is not None:
+        try:
+            excel_bytes = generate_monthly_report_excel(st.session_state.df)
+            st.download_button(
+                label="📥 點此下載 115 學年度用藥月報與全學期統計表 (.xlsx)",
+                data=excel_bytes,
+                file_name="115學年度上學期用藥月報與學期統計表.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"⚠️ 產生報表時發生錯誤：{e}")
     else:
-        st.info("資料載入中，或目前尚無庫存資料～")
-# ------------------ 115學年度月報表下載區 ------------------
-st.markdown("---")
-st.subheader("📊 衛保組 115 學年度月報表匯出")
-
-# 安全搜尋系統內現有的 DataFrame 變數
-target_df = None
-if 'df' in st.session_state:
-    target_df = st.session_state.df
-elif 'df' in locals() or 'df' in globals():
-    target_df = df
-elif 'data' in locals() or 'data' in globals():
-    target_df = data
-
-if target_df is not None:
-    try:
-        excel_data = generate_monthly_report_excel(target_df)
-        st.download_button(
-            label="📥 點此下載 115 學年度用藥月報與全學期統計表 (.xlsx)",
-            data=excel_data,
-            file_name="115學年度上學期用藥月報與學期統計表.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    except Exception as e:
-        st.warning(f"產生報表時發生錯誤：{e}")
-else:
-    st.info("💡 系統載入資料中，請稍後...")
+        st.warning("⚠️ 找不到 `monthly_report.py` 模組，請確定該檔案已建立並位於專案總資料夾中。")
