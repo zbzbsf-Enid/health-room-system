@@ -21,44 +21,58 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. 高質感 CSS 全域樣式 (大字體 18px+、Inter 字體、深色精緻卡片)
+# 2. 全域 CSS 樣式 (微調選單與選項字體至適中 15px)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* 全域基礎字體 */
 html, body, [class*="st-"], .stMarkdown, p, span, div {
     font-family: 'Inter', 'Microsoft JhengHei', 'PingFang TC', sans-serif !important;
-    font-size: 18px !important;
+    font-size: 16px !important;
 }
 
-h1 { font-size: 32px !important; font-weight: 700 !important; color: #F8FAFC !important; }
-h2 { font-size: 26px !important; font-weight: 700 !important; color: #E2E8F0 !important; }
-h3 { font-size: 22px !important; font-weight: 600 !important; color: #CBD5E1 !important; }
+/* 標題大小 */
+h1 { font-size: 28px !important; font-weight: 700 !important; color: #F8FAFC !important; }
+h2 { font-size: 22px !important; font-weight: 700 !important; color: #E2E8F0 !important; }
+h3 { font-size: 18px !important; font-weight: 600 !important; color: #CBD5E1 !important; }
 
-label, .stSelectbox label, .stNumberInput label, .stTextInput label, .stDateInput label, .stRadio label {
-    font-size: 18px !important;
+/* 一般欄位標籤 */
+label, .stSelectbox label, .stNumberInput label, .stTextInput label, .stDateInput label {
+    font-size: 16px !important;
     font-weight: 600 !important;
     color: #E2E8F0 !important;
 }
 
-input, select, textarea, .stSelectbox div {
-    font-size: 18px !important;
+/* 🎯 側邊欄與選單專用：字體縮小至 15px */
+section[data-testid="stSidebar"] *,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span {
+    font-size: 15px !important;
 }
 
+/* 🎯 下拉選單 (Selectbox) 內容文字微調至 15px (利於呈現長藥名) */
+input, select, textarea, .stSelectbox div, div[data-baseweb="select"] * {
+    font-size: 15px !important;
+}
+
+/* 按鈕樣式 */
 .stButton > button {
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
-    font-size: 18px !important;
+    font-size: 16px !important;
     font-weight: 600 !important;
     border-radius: 10px !important;
-    padding: 10px 20px !important;
+    padding: 8px 18px !important;
 }
 
+/* 「雲端報表匯出」卡片 */
 .export-card {
     background: rgba(30, 41, 59, 0.7);
     border: 1.5px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
-    padding: 28px;
+    padding: 24px;
     margin-top: 15px;
     margin-bottom: 25px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -67,28 +81,26 @@ input, select, textarea, .stSelectbox div {
 
 .export-card-title {
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
-    font-size: 26px !important;
+    font-size: 22px !important;
     font-weight: 700 !important;
     color: #FFFFFF !important;
-    margin-bottom: 14px !important;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    margin-bottom: 12px !important;
 }
 
 .export-card-desc {
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
-    font-size: 19px !important;
-    line-height: 1.7 !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
     color: #CBD5E1 !important;
-    margin-bottom: 20px !important;
+    margin-bottom: 15px !important;
 }
 
+/* 下載按鈕 */
 div.stDownloadButton > button {
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
-    font-size: 20px !important;
+    font-size: 18px !important;
     font-weight: 700 !important;
-    padding: 14px 28px !important;
+    padding: 12px 24px !important;
     border-radius: 12px !important;
     background: linear-gradient(135deg, #1F4E78 0%, #2E75B6 100%) !important;
     color: #FFFFFF !important;
@@ -107,7 +119,7 @@ div.stDownloadButton > button:hover {
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 3. 欄位智慧解析與對齊 (完美支援 Google 試算表欄位)
+# 3. 欄位智慧解析與正規化
 # -----------------------------------------------------------------------------
 def standardize_dataframe(df):
     """解析並正規化來自 Google 試算表或本地 CSV 的資料"""
@@ -183,7 +195,7 @@ def load_initial_data():
     if df is not None and not df.empty:
         return standardize_dataframe(df)
     
-    # 預設範例備用資料
+    # 預設備用資料
     data = {
         'name': ['Actein 600', 'Amoxicillin', 'Ancogen'],
         'chinese_name': ['愛克痰發泡錠', '安莫西林', '安可腱'],
@@ -204,7 +216,7 @@ def save_data():
     st.session_state.df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
 
 # -----------------------------------------------------------------------------
-# 5. 側邊欄 (Sidebar) 選單與雲端試算表連結區
+# 5. 側邊欄 (Sidebar) 選單區
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.title("🏥 衛保組管理系統")
@@ -230,7 +242,7 @@ with st.sidebar:
                 st.success("✅ 已成功載入 Google 試算表最新藥品資料！")
                 st.rerun()
             except Exception as e:
-                st.error(f"無法同步試算表，請確認連結是否已設定為『知道連結的人皆可檢視』！\n錯誤訊息：{e}")
+                st.error(f"無法同步試算表，請確認連結已設定為『知道連結的人皆可檢視』！\n錯誤：{e}")
         else:
             st.warning("請先輸入網址！")
 
