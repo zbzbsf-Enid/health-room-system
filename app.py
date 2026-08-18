@@ -15,31 +15,28 @@ except ImportError:
 # 1. 頁面基本配置
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="臺北大學衛保組門診藥品系統",
+    page_title="衛保組藥品關懷管理系統",
     page_icon="🏥",
     layout="wide"
 )
 
 # -----------------------------------------------------------------------------
-# 2. 全域 CSS 樣式 (微調選單與選項字體至適中 15px)
+# 2. 全域 CSS 樣式 (適中 15px/16px 字體、質感深色風格)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* 全域基礎字體 */
 html, body, [class*="st-"], .stMarkdown, p, span, div {
     font-family: 'Inter', 'Microsoft JhengHei', 'PingFang TC', sans-serif !important;
     font-size: 16px !important;
 }
 
-/* 標題大小 */
 h1 { font-size: 28px !important; font-weight: 700 !important; color: #F8FAFC !important; }
 h2 { font-size: 22px !important; font-weight: 700 !important; color: #E2E8F0 !important; }
 h3 { font-size: 18px !important; font-weight: 600 !important; color: #CBD5E1 !important; }
 
-/* 一般欄位標籤 */
-label, .stSelectbox label, .stNumberInput label, .stTextInput label, .stDateInput label {
+label, .stSelectbox label, .stMultiSelect label, .stNumberInput label, .stTextInput label {
     font-size: 16px !important;
     font-weight: 600 !important;
     color: #E2E8F0 !important;
@@ -53,7 +50,7 @@ section[data-testid="stSidebar"] span {
     font-size: 15px !important;
 }
 
-/* 🎯 下拉選單 (Selectbox) 內容文字微調至 15px (利於呈現長藥名) */
+/* 🎯 下拉與多選選單內容文字 15px */
 input, select, textarea, .stSelectbox div, div[data-baseweb="select"] * {
     font-size: 15px !important;
 }
@@ -67,7 +64,16 @@ input, select, textarea, .stSelectbox div, div[data-baseweb="select"] * {
     padding: 8px 18px !important;
 }
 
-/* 「雲端報表匯出」卡片 */
+/* 批次領藥卡片外框 */
+.batch-dispense-box {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 15px;
+}
+
+/* 雲端報表匯出卡片 */
 .export-card {
     background: rgba(30, 41, 59, 0.7);
     border: 1.5px solid rgba(255, 255, 255, 0.15);
@@ -95,7 +101,6 @@ input, select, textarea, .stSelectbox div, div[data-baseweb="select"] * {
     margin-bottom: 15px !important;
 }
 
-/* 下載按鈕 */
 div.stDownloadButton > button {
     font-family: 'Inter', 'Microsoft JhengHei', sans-serif !important;
     font-size: 18px !important;
@@ -147,7 +152,6 @@ def standardize_dataframe(df):
 
     df = df.rename(columns=col_map)
     
-    # 補齊基礎必要欄位
     if 'name' not in df.columns: df['name'] = "未命名藥品"
     if 'chinese_name' not in df.columns: df['chinese_name'] = ""
     else: df['chinese_name'] = df['chinese_name'].fillna('')
@@ -197,14 +201,14 @@ def load_initial_data():
     
     # 預設備用資料
     data = {
-        'name': ['Actein 600', 'Amoxicillin', 'Ancogen'],
+        'name': ['Actein 600mg', 'Amoxicillin 500mg', 'Ancogen'],
         'chinese_name': ['愛克痰發泡錠', '安莫西林', '安可腱'],
         'aug_stock': [643, 1403, 588],
         'stock': [643, 1403, 588],
         'purchased': [0, 0, 0],
         'expired': [0, 0, 0],
         'public_use': [0, 0, 0],
-        'expiry': ['2028-04-30', '2026-08-18', '2027-03-31'],
+        'expiry': ['2028-04-30', '2026-08-31', '2027-03-31'],
         'notes': ['去痰', '抗生素', '骨骼肌鬆弛']
     }
     return pd.DataFrame(data)
@@ -265,22 +269,21 @@ with st.sidebar:
     st.markdown("---")
     st.caption("國立臺北大學衛保組 © 115學年度系統")
 
-# 生成選單名稱 (英文 + 中文)
-def get_med_options(df):
-    options = []
-    for _, row in df.iterrows():
-        eng = str(row.get('name', '')).strip()
-        chi = str(row.get('chinese_name', '')).strip()
-        exp = str(row.get('expiry', '')).strip()
-        
-        display_str = eng
-        if chi and chi != 'nan' and chi != 'None':
-            display_str += f" ({chi})"
-        if exp and exp != 'nan' and exp != 'None':
-            display_str += f" - 效期:{exp}"
-            
-        options.append(display_str)
-    return options
+# 格式化選單選項名稱 (傳回列索引, 避免藥名重複時混淆)
+def format_med_option(idx, df_data):
+    row = df_data.iloc[idx]
+    eng = str(row.get('name', '')).strip()
+    chi = str(row.get('chinese_name', '')).strip()
+    exp = str(row.get('expiry', '')).strip()
+    stk = str(row.get('stock', 0)).strip()
+    
+    res = eng
+    if chi and chi not in ['nan', 'None', '']:
+        res += f" ({chi})"
+    if exp and exp not in ['nan', 'None', '']:
+        res += f" | 效期:{exp}"
+    res += f" (庫存:{stk})"
+    return res
 
 # -----------------------------------------------------------------------------
 # 6. 頁面渲染邏輯
@@ -288,37 +291,73 @@ def get_med_options(df):
 df = st.session_state.df
 
 # ==========================================
-# 頁面一：💊 藥品領用與紀錄
+# 頁面一：💊 藥品領用與紀錄 (升級：多選批次領藥模式)
 # ==========================================
 if page == "💊 藥品領用與紀錄":
     st.title("💊 藥品領用與登記")
-    st.markdown("填寫領藥資訊，系統將自動扣減總庫存並記錄至今日用量。")
+    st.markdown("點選下方搜尋欄可**選擇一種或多種藥品**，設定數量後即可一次完成登記與庫存扣減。")
 
-    col1, col2 = st.columns([1, 1.2])
-
-    options = get_med_options(df)
+    col1, col2 = st.columns([1.1, 1])
 
     with col1:
-        selected_option = st.selectbox("選擇藥品 (含中文名稱與效期)", options if options else ["無藥品資料"])
-        qty_used = st.number_input("領取數量", min_value=1, value=1, step=1)
-        note = st.text_input("用途 / 備註說明", placeholder="例：發燒、頭痛、去痰")
+        options_indices = list(range(len(df)))
+        
+        # 多選下拉選單
+        selected_indices = st.multiselect(
+            "選擇本次領取的所有藥品 (可同時選擇多項)",
+            options=options_indices,
+            format_func=lambda idx: format_med_option(idx, df),
+            placeholder="請點擊或輸入藥名/中文名稱進行搜尋..."
+        )
 
-        if st.button("✅ 確認領藥並儲存", type="primary"):
-            if selected_option and options:
-                idx = options.index(selected_option)
-                med_name = df.iloc[idx]['name']
-                mask = df.index == idx
+        items_to_dispense = []
+
+        if selected_indices:
+            st.markdown("---")
+            st.markdown("##### 📝 設定各領取藥品數量")
+            
+            # 為每一個選中的藥品產生動態數量調整框
+            for i, idx in enumerate(selected_indices):
+                row_data = df.iloc[idx]
+                med_name = row_data['name']
+                chi_name = row_data['chinese_name']
+                curr_stock = int(row_data['stock'])
                 
-                df.loc[mask, 'stock'] = df.loc[mask, 'stock'] - qty_used
-                
+                c_info, c_qty = st.columns([2.5, 1.2])
+                with c_info:
+                    st.write(f"**{med_name}**")
+                    st.caption(f"{chi_name}｜當前庫存：{curr_stock}")
+                with c_qty:
+                    qty = st.number_input(
+                        "數量",
+                        min_value=1,
+                        max_value=max(1, curr_stock),
+                        value=1,
+                        step=1,
+                        key=f"qty_input_{idx}_{i}"
+                    )
+                items_to_dispense.append((idx, med_name, chi_name, qty))
+
+            st.markdown("---")
+            note = st.text_input("用途 / 備註說明 (此批領藥共通)", placeholder="例：發燒感冒、頭痛、去痰、傷口處置")
+
+            if st.button("✅ 一鍵批次登記領取", type="primary"):
                 today_key = f"{datetime.now().month}/{datetime.now().day}"
                 if today_key not in df.columns:
                     df[today_key] = 0
-                df.loc[mask, today_key] = df.loc[mask, today_key] + qty_used
+                
+                summary_logs = []
+                for idx, med_name, chi_name, qty in items_to_dispense:
+                    mask = df.index == idx
+                    df.loc[mask, 'stock'] = df.loc[mask, 'stock'] - qty
+                    df.loc[mask, today_key] = df.loc[mask, today_key] + qty
+                    summary_logs.append(f"{med_name} ({chi_name}) x{qty}")
                 
                 save_data()
-                st.success(f"已成功登記領取！庫存剩餘：{df.loc[mask, 'stock'].values[0]}")
+                st.success(f"🎉 已成功完成批次登記領藥！\n領取項目：{', '.join(summary_logs)}")
                 st.rerun()
+        else:
+            st.info("💡 請先在上方的選單中點選或搜尋要領取的藥品。")
 
     with col2:
         st.subheader("📋 當前藥品庫存總覽")
@@ -328,7 +367,7 @@ if page == "💊 藥品領用與紀錄":
         show_df["目前庫存"] = df['stock']
         show_df["有效期限"] = df['expiry']
         show_df["用途/備註"] = df['notes']
-        st.dataframe(show_df, use_container_width=True, height=420)
+        st.dataframe(show_df, use_container_width=True, height=480)
 
 # ==========================================
 # 頁面二：📦 庫存盤點與校正
@@ -337,12 +376,15 @@ elif page == "📦 庫存盤點與校正":
     st.title("📦 庫存盤點與詳細校正")
     st.markdown("針對單一藥品進行詳細庫存資料修訂、盤點數輸入與效期維護。")
 
-    options = get_med_options(df)
+    options_indices = list(range(len(df)))
 
-    if options:
-        selected_option = st.selectbox("請選擇要校正的藥品", options)
-        idx = options.index(selected_option)
-        med_row = df.iloc[idx]
+    if options_indices:
+        selected_idx = st.selectbox(
+            "請選擇要校正的藥品",
+            options=options_indices,
+            format_func=lambda idx: format_med_option(idx, df)
+        )
+        med_row = df.iloc[selected_idx]
 
         with st.form("calibration_form"):
             col1, col2 = st.columns(2)
@@ -362,7 +404,7 @@ elif page == "📦 庫存盤點與校正":
             submitted = st.form_submit_button("🌱 儲存盤點校正紀錄", type="primary")
 
             if submitted:
-                mask = df.index == idx
+                mask = df.index == selected_idx
                 df.loc[mask, 'name'] = eng_name
                 df.loc[mask, 'chinese_name'] = chi_name
                 df.loc[mask, 'aug_stock'] = aug_stock
@@ -396,7 +438,7 @@ elif page == "☁️ 雲端報表匯出":
         try:
             excel_bytes = generate_monthly_report_excel(st.session_state.df)
             st.download_button(
-                label="📥 點此下載 115 學年度用藥月報與全學期統計表 (.xlsx)",
+                label="📥 點此下載 115 學年度用藥月報與學期統計表 (.xlsx)",
                 data=excel_bytes,
                 file_name="115學年度上學期用藥月報與學期統計表.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
