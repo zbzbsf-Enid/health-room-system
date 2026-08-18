@@ -1,9 +1,8 @@
-from monthly_report import generate_monthly_report_excel
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime, date
-
+from monthly_report import generate_monthly_report_excel
 st.set_page_config(page_title="衛保組藥品關懷管理系統", layout="wide")
 
 # 🎨 注入溫暖系 CSS 樣式（圓角卡片、柔和配色、放大字體 18px+）
@@ -289,3 +288,12 @@ with tab3:
         )
     else:
         st.info("資料載入中，或目前尚無庫存資料～")
+with tab_report:  # 或對應的 tab 變數名稱
+    st.write("### 匯出衛保組標準月報表")
+    excel_data = generate_monthly_report_excel(df)
+    st.download_button(
+        label="📊 匯出 115 學年度用藥月報表 (.xlsx)",
+        data=excel_data,
+        file_name="115學年度上學期用藥月報與學期統計表.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
